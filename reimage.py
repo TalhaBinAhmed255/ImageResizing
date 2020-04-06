@@ -1,3 +1,6 @@
+import argparse
+
+
 class Config:
     # TODO add Doc string
     pass
@@ -31,12 +34,65 @@ def reimage(config: Config):
             counterUsedAsNewNameOfImages+=1
 
 
-if __name__ == '__main__':
+def __init_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description='Converts images from the source directory to a given resolution'
+                                                 'and copies the new files in destination directory.')
+    parser.add_argument('source_directory',
+                        type=str,
+                        help='Directory whose images need to be converted.')
 
-    # TODO configure and parse args
+    parser.add_argument('destination_directory',
+                        type=str,
+                        help='Directory where converted files will be copied.')
+
+    parser.add_argument('height',
+                        type=int,
+                        help='Height of the converted image in pixels.')
+
+    parser.add_argument('width',
+                        type=int,
+                        help='Width of the converted image in pixels.')
+
+    parser.add_argument('-t', '--target-discovery',
+                        type=str,
+                        choices=['shallow', 'deep'],
+                        default='shallow',
+                        help='How to find target files. "shallow" only includes files of the source_directory.'
+                             '"deep" includes all files in the source_directory, including subdirectory files.')
+
+    parser.add_argument('-s', '--save-structure',
+                        type=str,
+                        choices=['root', 'source'],
+                        default='root',
+                        help='Where to save converted files. "root" saves all files in destination_directory'
+                             '"source" saves files in a directory structure similar to source_directory.'
+                             'Note: In "root", filenames have numbers appended to avoid conflicts.')
+    parser.add_argument('-b', '--background-type',
+                        type=str,
+                        choices=['solid-black', 'noise'],
+                        default='noise',
+                        help='Background type to use when converted image does not cover the entire space given in'
+                        '"height" and "width".')
+
+    parser.add_argument('-p', '--padding',
+                        type=str,
+                        choices=['start', 'center', 'end'],
+                        default='center',
+                        help='Sides to pad to make the resized image equal to given size.'
+                        'It could be thought as the alignment of resized image in a container of given size.')
+
+    return parser
+
+
+if __name__ == '__main__':
+    import sys
+
+    args_parser = __init_arg_parser()
+    args = args_parser.parse_args()
 
     config = Config()  # TODO make config from args
-    reimage(config=config)
+    print("DOne")
+    # reimage(config=config)
 
 
 # Scrap Code Snippets
