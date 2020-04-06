@@ -1,13 +1,18 @@
 import argparse
 
 
-class Config:
-    # TODO add Doc string
-    pass
+def reimage(args: argparse.Namespace) -> None:
+    """
+    Converts args.source_directory files to a size args.height and args.width and saves the file into
+    args.destination_directory.
 
+    args contains the following properties: background_type, destination_directory, height, padding,
+      save_structure, source_directory, target_discovery, width
 
-def reimage(config: Config):
-    # TODO add Doc string
+    :param args: Arguments required for this function to work.
+    :return: Nothing.
+    :rtype: None.
+    """
 
     import glob
     from PIL import Image
@@ -35,6 +40,12 @@ def reimage(config: Config):
 
 
 def __init_arg_parser() -> argparse.ArgumentParser:
+    """
+    Configures an ArgumentParser with the arguments needed for this script.
+
+    :return: Configured ArgumentParser
+    :rtype: argparse.ArgumentParser
+    """
     parser = argparse.ArgumentParser(description='Converts images from the source directory to a given resolution'
                                                  'and copies the new files in destination directory.')
     parser.add_argument('source_directory',
@@ -85,14 +96,10 @@ def __init_arg_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == '__main__':
-    import sys
-
     args_parser = __init_arg_parser()
     args = args_parser.parse_args()
 
-    config = Config()  # TODO make config from args
-    print("DOne")
-    # reimage(config=config)
+    # reimage(args=args)
 
 
 # Scrap Code Snippets
