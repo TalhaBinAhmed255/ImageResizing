@@ -13,33 +13,43 @@ IMAGE_FILE_EXTENSION_REGEX = re.compile(r"^.+\.((?:jpg)|(?:jpeg)|(?:png))$")
 
 
 class BackgroundInterface(ABC):
+    """
+    Interface for Background image generating classes.
+    """
     @abstractmethod
     def __init__(self, size: (int, int)):
         pass
 
     @abstractmethod
     def get_image(self, mode: str) -> Image:
+        """
+        Returns a background PIL.Image according to the size passed to the class during initialization.
+        :param mode: PIL.Image's mode
+        :return: An image.
+        """
         pass
 
-# 1 (1-bit pixels, black and white, stored with one pixel per byte)
-# L (8-bit pixels, black and white)
-# P (8-bit pixels, mapped to any other mode using a color palette)
-# RGB (3x8-bit pixels, true color)
-# RGBA (4x8-bit pixels, true color with transparency mask)
-# CMYK (4x8-bit pixels, color separation)
-# YCbCr (3x8-bit pixels, color video format)
-# Note that this refers to the JPEG, and not the ITU-R BT.2020, standard
-# LAB (3x8-bit pixels, the L*a*b color space)
-# HSV (3x8-bit pixels, Hue, Saturation, Value color space)
-# I (32-bit signed integer pixels)
-# F (32-bit floating point pixels)
+    @staticmethod
+    @abstractmethod
+    def get_name() -> str:
+        """
+        Returns a string used to identify this Background class.
+        :return: name of the background class.
+        """
+        pass
 
 
 class SolidBlackBackground(BackgroundInterface):
+    @staticmethod
+    def get_name() -> str:
+        return 'solid-black'
+
     def __init__(self, size: (int, int)):
         super().__init__(size)
+
         color = '#000'
 
+        # cache images for faster generation of backgrounds
         self.__cache = {
             '1': Image.new('1', size, color),
             'L': Image.new('L', size, color),
@@ -47,6 +57,7 @@ class SolidBlackBackground(BackgroundInterface):
             'RGB': Image.new('RGB', size, color),
             'RGBA': Image.new('RGBA', size, color),
             'CMYK': Image.new('CMYK', size, color),
+            'YCbCr': Image.new('YCbCr', size, color),
             'LAB': Image.new('LAB', size, color),
             'HSV': Image.new('HSV', size, color),
             'I': Image.new('I', size, color),
@@ -58,8 +69,13 @@ class SolidBlackBackground(BackgroundInterface):
 
 
 class RandomNoiseBackground(BackgroundInterface):
+    @staticmethod
+    def get_name() -> str:
+        return 'noise'
+
     def __init__(self, size: (int, int)):
         super().__init__(size)
+
         self.size = size
         self.limits = np.iinfo('int32')
 
@@ -69,17 +85,32 @@ class RandomNoiseBackground(BackgroundInterface):
 
 
 class BackgroundFactory:
+    """
+    Creates Background generator classes.
+    """
     @staticmethod
     def get_background(name: str, size: (int, int)) -> BackgroundInterface:
-        if name == 'solid-black':
+        """
+        Returns an instance of a Background generating class according to the param name.
+        :param name: A string corresponding.
+        :param size: Size of the image to be returns as (width, height).
+        :return:
+        """
+        if name == SolidBlackBackground.get_name():
             return SolidBlackBackground(size)
-        elif name == 'noise':
+        elif name == RandomNoiseBackground.get_name():
             return RandomNoiseBackground(size)
 
 
 class ReImage:
-
+    """
+    Changes the dimensions of files in a source directory to given values and stores them in a destination directory.
+    """
     def __init__(self, args_namespace: argparse.Namespace):
+        """
+        :param args_namespace: contains args to specify several properties that determine behavior.
+                               Refer to GitHub repo.
+        """
         # Extract args
         self.width = args_namespace.width
         self.height = args_namespace.height
@@ -96,6 +127,7 @@ class ReImage:
         self.image_counter = 0
 
     def run(self):
+        """Starts the conversion process."""
 
         if self.target_discovery == 'shallow':
             self.current_directory, _, files = os.walk(self.source_directory).__next__()
@@ -107,7 +139,12 @@ class ReImage:
 
         print(f'\n\tTotal files converted: {self.image_counter}\n')
 
-    def __process_files(self, files):
+    def __process_files(self, files: list[str]):
+        """
+        Converts all files in the files list.
+        :param files: A list of file names.
+        :return: Nothing.
+        """
         for filename in files:
             filepath = os.path.join(self.current_directory, filename)
             if IMAGE_FILE_EXTENSION_REGEX.match(filename):
@@ -115,7 +152,15 @@ class ReImage:
                 self.__save_image(image, filename)
 
     def __convert_image(self, image_filepath: str) -> Image:
+        """
+        Converts a single image to new size.
+        :param image_filepath: Complete path of the file.
+        :return: Converted Image.
+        """
         image = Image.open(image_filepath)
+
+        # For some reason, paste function did not work on these modes when a PNG of bit depth of 1, 8, or 16 was used.
+        # I convert them to RGBA, which works fine.
         if image.mode in ('1', 'L', 'P'):
             image = image.convert('RGBA')
 
@@ -128,6 +173,13 @@ class ReImage:
 
     @staticmethod
     def __calculate_new_image_size(old_img_size: (int, int), new_img_size: (int, int)) -> ((int, int), (int, int)):
+        """
+        Calculates what size an image with old_img_size would have to become if we want to place it in an image
+        of new_img_size, along with the padding required on vertical and horizontal axis.
+        :param old_img_size: (width, height) of an image which needs resizing.
+        :param new_img_size: (width, height) of an image in which the other image is to be pasted.
+        :return: (new_width, new_height), (new_horizontal_padding, new_vertical_padding)
+        """
         ratio_old = ReImage.__calculate_size_ratio(old_img_size)
         ratio_new = ReImage.__calculate_size_ratio(new_img_size)
 
@@ -150,6 +202,12 @@ class ReImage:
         return img_size[0] / img_size[1]
 
     def __apply_to_background(self, image: Image, padding: (int, int)) -> Image:
+        """
+        Pastes image on a background.
+        :param image: Image to be pasted onto a background.
+        :param padding: The free space that will be left behind after the pasting.
+        :return: image of proper size with a background.
+        """
         if self.padding_alignment == 'start':
             box = (0, 0)
         elif self.padding_alignment == 'end':
@@ -164,6 +222,12 @@ class ReImage:
         return bg_image
 
     def __save_image(self, image: Image, filename: str):
+        """
+        Stores the image on the system.
+        :param image: image to store.
+        :param filename: the filename of the image.
+        :return: nothing.
+        """
         destination_directory_temp = self.destination_directory
         if self.save_structure == 'source':
             partial_path = self.current_directory[len(self.source_directory):]
