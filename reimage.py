@@ -3,6 +3,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 
+import numpy as np
 from PIL import Image
 
 
@@ -56,11 +57,25 @@ class SolidBlackBackground(BackgroundInterface):
         return self.__cache[mode].copy()
 
 
+class RandomNoiseBackground(BackgroundInterface):
+    def __init__(self, size: (int, int)):
+        super().__init__(size)
+        self.size = size
+        self.limits = np.iinfo('int32')
+
+    def get_image(self, mode: str) -> Image:
+        random_values = np.random.randint(self.limits.min, high=self.limits.max, size=self.size)
+        return Image.fromarray(random_values, mode)
+
+
 class BackgroundFactory:
     @staticmethod
     def get_background(name: str, size: (int, int)) -> BackgroundInterface:
         if name == 'solid-black':
             return SolidBlackBackground(size)
+        elif name == 'noise':
+            return RandomNoiseBackground(size)
+
 
 class ReImage:
 
@@ -149,17 +164,19 @@ class ReImage:
         return bg_image
 
     def __save_image(self, image: Image, filename: str):
+        destination_directory_temp = self.destination_directory
         if self.save_structure == 'source':
             partial_path = self.current_directory[len(self.source_directory):]
-            if partial_path[0] == os.path.sep:
+            if partial_path and partial_path[0] == os.path.sep:
                 partial_path = partial_path[1:]
-
-            destination_filepath = os.path.join(self.destination_directory, partial_path,
+            destination_directory_temp = os.path.join(self.destination_directory, partial_path)
+            destination_filepath = os.path.join(destination_directory_temp,
                                                 f'{self.image_counter} {filename}')
         else:
             destination_filepath = os.path.join(self.destination_directory,
                                                 f'{self.image_counter} {filename}')
 
+        os.makedirs(destination_directory_temp, exist_ok=True)
         image.save(destination_filepath, quality=100)
 
         print(f'SAVED: {destination_filepath}')
@@ -229,24 +246,10 @@ if __name__ == '__main__':
 
     assert os.path.isdir(args.source_directory), f'Source Directory "{args.source_directory}" does not exist.'
 
-    try:
+    if not os.path.isdir(args.destination_directory):
         os.makedirs(args.destination_directory)
+    if not os.listdir(args.destination_directory):
         ReImage(args).run()
-    except FileExistsError:
-        print('\nDestination directory already exists. Cannot continue.\n')
+    else:
+        print('\nDestination directory not empty. Cannot continue.\n')
 
-
-# for image in images:
-#
-#     with open(image, 'rb') as file:
-#
-#         img = Image.open(file)
-#
-#         wpercent = (image_width / float(img.size[0]))
-#         heightOfNewImage = int((float(img.size[1]) * float(wpercent)))
-#         print(heightOfNewImage)
-#         img = img.resize((image_width, heightOfNewImage), Image.ANTIALIAS)
-#
-#         img.save(destination_directory+ str(image_counter) + '.jpg' , 'JPEG', quality=100)
-#         #Path Of The folder where the resulting images will be stored
-#         image_counter+=1
