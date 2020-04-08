@@ -1,6 +1,7 @@
 import argparse
 import os
 import re
+import time
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -139,7 +140,7 @@ class ReImage:
 
         print(f'\n\tTotal files converted: {self.image_counter}\n')
 
-    def __process_files(self, files: list[str]):
+    def __process_files(self, files: [str]):
         """
         Converts all files in the files list.
         :param files: A list of file names.
@@ -229,16 +230,16 @@ class ReImage:
         :return: nothing.
         """
         destination_directory_temp = self.destination_directory
+        new_filename = f'{ReImage.__current_milli_time()}{self.image_counter} {filename}'
+
         if self.save_structure == 'source':
             partial_path = self.current_directory[len(self.source_directory):]
             if partial_path and partial_path[0] == os.path.sep:
                 partial_path = partial_path[1:]
             destination_directory_temp = os.path.join(self.destination_directory, partial_path)
-            destination_filepath = os.path.join(destination_directory_temp,
-                                                f'{self.image_counter} {filename}')
+            destination_filepath = os.path.join(destination_directory_temp, new_filename)
         else:
-            destination_filepath = os.path.join(self.destination_directory,
-                                                f'{self.image_counter} {filename}')
+            destination_filepath = os.path.join(self.destination_directory, new_filename)
 
         os.makedirs(destination_directory_temp, exist_ok=True)
         image.save(destination_filepath, quality=100)
@@ -246,6 +247,10 @@ class ReImage:
         print(f'SAVED: {destination_filepath}')
 
         self.image_counter += 1
+
+    @staticmethod
+    def __current_milli_time() -> int:
+        return int(round(time.time() * 1000))
 
 
 def __init_arg_parser() -> argparse.ArgumentParser:
